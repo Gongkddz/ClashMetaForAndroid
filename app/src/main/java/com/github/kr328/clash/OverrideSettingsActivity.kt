@@ -1,6 +1,6 @@
 package com.github.kr328.clash
 
-import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
 import com.github.kr328.clash.common.compat.getDrawableCompat
 import com.github.kr328.clash.common.constants.Metadata
 import com.github.kr328.clash.core.Clash
@@ -39,6 +39,33 @@ class OverrideSettingsActivity : BaseActivity<OverrideSettingsDesign>() {
                 }
                 design.requests.onReceive {
                     when (it) {
+                        OverrideSettingsDesign.Request.ImportRoutingOverride -> {
+                            val uri = startActivityForResult(
+                                ActivityResultContracts.OpenDocument(), arrayOf("*/*")
+                            ) ?: return@onReceive
+                            val imported = withContext(Dispatchers.IO) {
+                                try {
+                                    val source = contentResolver.openInputStream(uri)?.bufferedReader()
+                                        ?.use { reader ->
+                                            val limit = OverrideSettingsDesign.ROUTING_YAML_LIMIT
+                                            val buffer = CharArray(4096)
+                                            val text = StringBuilder()
+                                            while (true) {
+                                                val count = reader.read(buffer)
+                                                if (count < 0) break
+                                                require(text.length + count <= limit)
+                                                text.append(buffer, 0, count)
+                                            }
+                                            text.toString()
+                                        } ?: throw IllegalArgumentException()
+                                    OverrideSettingsDesign.parseRoutingOverride(source)
+                                } catch (_: Exception) {
+                                    null
+                                }
+                            }
+                            if (imported == null) design.showRoutingImportError()
+                            else design.editRoutingOverride(imported)
+                        }
                         OverrideSettingsDesign.Request.ResetOverride -> {
                             if (design.requestResetConfirm()) {
                                 defer {

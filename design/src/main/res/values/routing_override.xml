@@ -1,0 +1,8 @@
+<resources>
+    <string name="routing_override">Routing rules override</string>
+    <string name="routing_override_import">Import routing rules from YAML</string>
+    <string name="routing_override_active">Custom routing rules enabled</string>
+    <string name="routing_override_disable">Disable</string>
+    <string name="routing_override_help">Enter or paste YAML. Each supplied field replaces the corresponding subscription field. Use rules, rule-providers, or sub-rules. Referenced proxies and groups must exist in the subscription.</string>
+    <string name="routing_override_invalid">Unable to read routing rules. Check the YAML structure and the 512 Ki-character limit.</string>
+</resources>

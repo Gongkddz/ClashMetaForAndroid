@@ -1,6 +1,13 @@
 package com.github.kr328.clash.design
 
 import android.content.Context
+import android.text.InputType
+import android.widget.EditText
+import android.widget.ScrollView
+import org.yaml.snakeyaml.DumperOptions
+import org.yaml.snakeyaml.LoaderOptions
+import org.yaml.snakeyaml.Yaml
+import org.yaml.snakeyaml.constructor.SafeConstructor
 import android.view.View
 import com.github.kr328.clash.core.model.ConfigurationOverride
 import com.github.kr328.clash.core.model.LogMessage
@@ -19,14 +26,16 @@ import kotlin.coroutines.resume
 
 class OverrideSettingsDesign(
     context: Context,
-    configuration: ConfigurationOverride
+    private val configuration: ConfigurationOverride
 ) : Design<OverrideSettingsDesign.Request>(context) {
     enum class Request {
-        ResetOverride
+        ResetOverride, ImportRoutingOverride
     }
 
     private val binding = DesignSettingsOverideBinding
         .inflate(context.layoutInflater, context.root, false)
+
+    private lateinit var routingPreference: ClickablePreference
 
     override val root: View
         get() = binding.root
@@ -70,6 +79,14 @@ class OverrideSettingsDesign(
         )
 
         val screen = preferenceScreen(context) {
+            routingPreference = clickable(R.string.routing_override) {
+                clicked { editRoutingOverride() }
+            }
+            updateRoutingSummary()
+            clickable(R.string.routing_override_import) {
+                clicked { requests.trySend(Request.ImportRoutingOverride) }
+            }
+
             category(R.string.general)
 
             editableText(
@@ -411,6 +428,84 @@ class OverrideSettingsDesign(
         }
 
         binding.content.addView(screen.root)
+    }
+
+    private fun updateRoutingSummary() {
+        routingPreference.summary = context.getText(
+            if (configuration.routingOverride == null) R.string.dont_modify
+            else R.string.routing_override_active
+        )
+    }
+
+    fun editRoutingOverride(initial: String? = configuration.routingOverride) {
+        val input = EditText(context).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            minLines = 4
+            maxLines = 10
+            hint = "rules:\n  - MATCH,DIRECT"
+            setText(initial.orEmpty())
+        }
+        val view = ScrollView(context).apply { addView(input) }
+        val dialog = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.routing_override)
+            .setMessage(R.string.routing_override_help)
+            .setView(view)
+            .setPositiveButton(R.string.ok, null)
+            .setNegativeButton(R.string.cancel, null)
+            .setNeutralButton(R.string.routing_override_disable) { _, _ ->
+                configuration.routingOverride = null
+                updateRoutingSummary()
+            }
+            .show()
+
+        dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+            try {
+                configuration.routingOverride = parseRoutingOverride(input.text.toString())
+                updateRoutingSummary()
+                dialog.dismiss()
+            } catch (_: Exception) {
+                input.error = context.getString(R.string.routing_override_invalid)
+            }
+        }
+    }
+
+    fun showRoutingImportError() {
+        MaterialAlertDialogBuilder(context)
+            .setMessage(R.string.routing_override_invalid)
+            .setPositiveButton(R.string.ok, null)
+            .show()
+    }
+
+    companion object {
+        const val ROUTING_YAML_LIMIT = 512 * 1024
+
+        fun parseRoutingOverride(source: String): String {
+            require(source.length <= ROUTING_YAML_LIMIT)
+            val loader = LoaderOptions().apply {
+                codePointLimit = ROUTING_YAML_LIMIT
+                isAllowDuplicateKeys = false
+            }
+            val document = Yaml(SafeConstructor(loader)).load<Any>(source) as? Map<*, *>
+                ?: throw IllegalArgumentException()
+            val fields = setOf("rules", "rule-providers", "sub-rules")
+            val routing = document.filterKeys { it in fields }
+            require(routing.isNotEmpty())
+            for ((key, value) in routing) {
+                when (key) {
+                    "rules" -> require(isRuleList(value))
+                    "rule-providers" -> require(value is Map<*, *> &&
+                        value.all { (name, provider) -> name is String && provider is Map<*, *> })
+                    "sub-rules" -> require(value is Map<*, *> &&
+                        value.all { (name, rules) -> name is String && isRuleList(rules) })
+                }
+            }
+            val dumper = DumperOptions().apply { defaultFlowStyle = DumperOptions.FlowStyle.BLOCK }
+            return Yaml(dumper).dump(routing).also { require(it.length <= ROUTING_YAML_LIMIT) }
+        }
+
+        private fun isRuleList(value: Any?): Boolean =
+            value is List<*> && value.all { it is String && it.isNotBlank() }
     }
 
     fun requestClear() {

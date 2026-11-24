@@ -1,87 +1,79 @@
-## Clash Meta for Android
+<div align="center">
+  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" alt="Clash Meta for Android" width="88">
+  <h1>Clash Meta for Android</h1>
+  <p><strong>分流规则覆写 · Routing Rules Override</strong></p>
+  <p>保留订阅自动更新，持续使用自己的分流规则。</p>
+  <p>
+    <a href="#使用">使用</a> ·
+    <a href="#从源码构建">从源码构建</a> ·
+    <a href="#english">English</a> ·
+    <a href="https://github.com/MetaCubeX/ClashMetaForAndroid">官方上游</a> ·
+    <a href="LICENSE">GPL-3.0</a>
+  </p>
+</div>
 
-A Graphical user interface of [Clash.Meta](https://github.com/MetaCubeX/Clash.Meta) for Android
+## 核心贡献
 
-### Feature
+本分支给 Clash Meta for Android 的「覆写」页增加了**分流规则覆写**。可以粘贴 YAML，也可以从已有配置文件导入。保存后的覆写会在订阅自动更新、手动刷新及配置重新加载时继续应用。
 
-Feature of [Clash.Meta](https://github.com/MetaCubeX/Clash.Meta)
+| 字段 | 用途 |
+| --- | --- |
+| `rules` | 自定义分流规则和匹配顺序 |
+| `rule-providers` | 定义供 `RULE-SET` 使用的规则集 |
+| `sub-rules` | 定义供规则引用的子规则 |
 
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
-     alt="Get it on F-Droid"
-     height="80">](https://f-droid.org/packages/com.github.metacubex.clash.meta/)
+每个填写的字段都会整段覆写订阅中的对应字段。省略字段会继承订阅值。显式填写空列表或空映射可以清空对应字段。
 
-### Requirement
+```mermaid
+flowchart LR
+  A["订阅下载或刷新"] --> B["读取订阅配置"]
+  C["本地规则覆写"] --> D["应用已填写的字段"]
+  B --> D --> E["Mihomo 校验与加载"]
+```
 
-- Android 5.0+ (minimum)
-- Android 7.0+ (recommend)
-- `armeabi-v7a` , `arm64-v8a`, `x86` or `x86_64` Architecture
+## 使用
 
-### Build
+1. 打开 **设置 → 覆写 → 分流规则覆写**，粘贴或编辑 YAML。也可选择 **从 YAML 导入分流规则**。
+2. 确认后返回上一级保存。下一次加载配置时应用覆写，可刷新配置或重启连接。
+3. 在编辑框中点 **停用**，即可恢复使用订阅规则。
 
-1. Update submodules
+下面示例仅使用 Mihomo 内置策略：
 
-   ```bash
-   git submodule update --init --recursive
-   ```
+```yaml
+rules:
+  - DOMAIN-SUFFIX,example.com,REJECT
+  - MATCH,DIRECT
+```
 
-2. Install **OpenJDK 11**, **Android SDK**, **CMake** and **Golang**
+覆写设置保存在该客户端本地，作用于该客户端加载的所有配置。订阅 YAML 保持原样。规则引用的代理组名称必须与订阅一致，`RULE-SET` 使用的规则集也必须存在。配置校验会报告缺失的引用。
 
-3. Create `local.properties` in project root with
+## 从源码构建
 
-   ```properties
-   sdk.dir=/path/to/android-sdk
-   ```
+构建需要 JDK 21、Android SDK 35、NDK `29.0.14206865`、CMake 和 Go 1.26 工具链。Gradle 版本由 Wrapper 指定，原生构建环境可参考[上游 CI](.github/workflows/build-debug.yaml)。
 
-4. (Optional) Custom app package name. Add the following configuration to `local.properties`.
+```bash
+git clone --branch routing-rules-override --recurse-submodules https://github.com/Gongkddz/ClashMetaForAndroid.git
+cd ClashMetaForAndroid
+```
 
-   ```properties
-   # config your ownn applicationId, or it will be 'com.github.metacubex.clash'
-   custom.application.id=com.my.compile.clash
-   # remove application id suffix, or the applicaion id will be 'com.github.metacubex.clash.alpha'
-   remove.suffix=true
+安装 Android SDK 组件后，设置 `ANDROID_HOME`，或在本地 `local.properties` 设置 `sdk.dir`。若要与官方版并存，可在同一文件中设置自己的 `custom.application.id`。
 
-5. Create `signing.properties` in project root with
+```bash
+./gradlew :app:assembleMetaDebug
+```
 
-   ```properties
-   keystore.path=/path/to/keystore/file
-   keystore.password=<key store password>
-   key.alias=<key alias>
-   key.password=<key password>
-   ```
+Windows 使用 `gradlew.bat`。如果需要 ARM64 单架构、可常规安装的调试包，可追加 `-Pandroid.injected.build.abi=arm64-v8a -Pandroid.injected.testOnly=false`。
 
-6. Build
+ARM64 调试包已构建，真机已验证 YAML 导入、保存后重新打开和停用。真实 VPN 流量分流仍待验证。
 
-   ```bash
-   ./gradlew app:assembleAlphaRelease
-   ```
+## English
 
-### Automation
+This fork adds persistent routing-rule overrides to **Settings → Override**. Edit, paste, or import YAML for `rules`, `rule-providers`, and `sub-rules`. Supplied fields replace their subscription counterparts in full. Omitted fields inherit the subscription value. The Android client applies the overrides during configuration validation and loading, including after automatic subscription updates.
 
-APP package name is `com.github.metacubex.clash.meta`
+Overrides are global to this app. The downloaded YAML is preserved. Referenced policies and rule providers must exist in the effective configuration.
 
-- Toggle Clash.Meta service status
-  - Send intent to activity `com.github.kr328.clash.ExternalControlActivity` with action `com.github.metacubex.clash.meta.action.TOGGLE_CLASH`
-- Start Clash.Meta service
-  - Send intent to activity `com.github.kr328.clash.ExternalControlActivity` with action `com.github.metacubex.clash.meta.action.START_CLASH`
-- Stop Clash.Meta service
-  - Send intent to activity `com.github.kr328.clash.ExternalControlActivity` with action `com.github.metacubex.clash.meta.action.STOP_CLASH`
-- Import a profile
-  - URL Scheme `clash://install-config?url=<encoded URI>` or `clashmeta://install-config?url=<encoded URI>`
+## 许可与上游
 
-### Contribution and Project Maintenance
+本项目是 [MetaCubeX/ClashMetaForAndroid](https://github.com/MetaCubeX/ClashMetaForAndroid) 的 GitHub fork，沿用 [GPL-3.0](LICENSE)。感谢 Clash Meta for Android 与 [Mihomo](https://github.com/MetaCubeX/mihomo) 的维护者。YAML 导入使用 [SnakeYAML](https://bitbucket.org/snakeyaml/snakeyaml)。
 
-#### Meta Kernel
-
-- CMFA uses the kernel from `android-real` branch under `MetaCubeX/Clash.Meta`, which is a merge of the main `Alpha` branch and `android-open`.
-  - If you want to contribute to the kernel, make PRs to `Alpha` branch of the Meta kernel repository.
-  - If you want to contribute Android-specific patches to the kernel, make PRs to  `android-open` branch of the Meta kernel repository.
-
-#### Maintenance
-
-- When `MetaCubeX/Clash.Meta` kernel is updated to a new version, the `Update Dependencies` actions in this repo will be triggered automatically.
-  - It will pull the new version of the meta kernel, update all the golang dependencies, and create a PR without manual intervention.
-  - If there is any compile error in PR, you need to fix it before merging. Alternatively, you may merge the PR directly.
-- Manually triggering `Build Pre-Release` actions will compile and publish a `PreRelease` version.
-- Manually triggering `Build Release` actions will compile, tag and publish a `Release` version.
-  - You must fill the blank `Release Tag` with the tag you want to release in the format of `v1.2.3`.
-  - `versionName` and `versionCode` in `build.gradle.kts` will be automatically bumped to the tag you filled above.
+上游项目的自动化接口和维护说明见[基线 README](https://github.com/MetaCubeX/ClashMetaForAndroid/blob/6e635124cc72f8c102b7e76d849c384deba28b3f/README.md)。

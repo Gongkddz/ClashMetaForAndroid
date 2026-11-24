@@ -64,3 +64,9 @@ google-services.json
 
 # MacOS
 .DS_Store
+
+# Local build tools and distribution artifacts
+/.gradle-local/
+/dist/
+*.apk
+*.aab

@@ -11,6 +11,7 @@ import (
 	"cfa/native/common"
 
 	"github.com/metacubex/mihomo/common/utils"
+	"github.com/metacubex/mihomo/common/yaml"
 	"github.com/metacubex/mihomo/config"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/log"
@@ -31,13 +32,41 @@ var processors = []processor{
 type processor func(cfg *config.RawConfig, profileDir string) error
 
 func patchOverride(cfg *config.RawConfig, _ string) error {
-	if err := json.NewDecoder(strings.NewReader(ReadOverride(OverrideSlotPersist))).Decode(cfg); err != nil {
-		log.Warnln("Apply persist override: %s", err.Error())
+	for _, slot := range []OverrideSlot{OverrideSlotPersist, OverrideSlotSession} {
+		content := ReadOverride(slot)
+		if err := json.NewDecoder(strings.NewReader(content)).Decode(cfg); err != nil {
+			log.Warnln("Apply override: %s", err.Error())
+		}
+		var override struct {
+			Routing string `json:"routing-override"`
+		}
+		if json.Unmarshal([]byte(content), &override) == nil && override.Routing != "" {
+			if err := applyRoutingOverride(cfg, []byte(override.Routing)); err != nil {
+				return errors.New("invalid routing override YAML")
+			}
+		}
 	}
-	if err := json.NewDecoder(strings.NewReader(ReadOverride(OverrideSlotSession))).Decode(cfg); err != nil {
-		log.Warnln("Apply session override: %s", err.Error())
-	}
+	return nil
+}
 
+func applyRoutingOverride(cfg *config.RawConfig, data []byte) error {
+	var override struct {
+		Rules         *[]string                  `yaml:"rules"`
+		RuleProviders *map[string]map[string]any `yaml:"rule-providers"`
+		SubRules      *map[string][]string       `yaml:"sub-rules"`
+	}
+	if err := yaml.Unmarshal(data, &override); err != nil {
+		return err
+	}
+	if override.Rules != nil {
+		cfg.Rule = *override.Rules
+	}
+	if override.RuleProviders != nil {
+		cfg.RuleProvider = *override.RuleProviders
+	}
+	if override.SubRules != nil {
+		cfg.SubRules = *override.SubRules
+	}
 	return nil
 }
 

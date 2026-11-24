@@ -1,0 +1,8 @@
+<resources>
+    <string name="routing_override">分流规则覆写</string>
+    <string name="routing_override_import">从 YAML 导入分流规则</string>
+    <string name="routing_override_active">已启用自定义分流规则</string>
+    <string name="routing_override_disable">停用</string>
+    <string name="routing_override_help">输入或粘贴 YAML。填写的 rules、rule-providers 或 sub-rules 将整段覆写订阅中的对应字段。规则引用的节点和代理组必须在订阅中存在。</string>
+    <string name="routing_override_invalid">无法读取分流规则。请检查 YAML 结构，文件最多可包含 524288 个字符。</string>
+</resources>
