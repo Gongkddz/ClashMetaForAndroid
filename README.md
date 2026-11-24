@@ -4,6 +4,7 @@
   <p><strong>分流规则覆写 · Routing Rules Override</strong></p>
   <p>保留订阅自动更新，持续使用自己的分流规则。</p>
   <p>
+    <a href="#下载">下载</a> ·
     <a href="#使用">使用</a> ·
     <a href="#从源码构建">从源码构建</a> ·
     <a href="#english">English</a> ·
@@ -30,6 +31,10 @@ flowchart LR
   C["本地规则覆写"] --> D["应用已填写的字段"]
   B --> D --> E["Mihomo 校验与加载"]
 ```
+
+## 下载
+
+在 [GitHub Releases](https://github.com/Gongkddz/ClashMetaForAndroid/releases) 下载 ARM64 调试预览版。发布页同时提供 `SHA256SUMS.txt`，可用于验证下载完整性。安装后请在客户端导入自己的配置。
 
 ## 使用
 
